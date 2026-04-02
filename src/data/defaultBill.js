@@ -13,7 +13,6 @@ const defaultBill = {
   accountNumber: '',
   accountName: '',
   bankDetails: '',
-  currency: 'GBP',
   companyPhone: '+44 7824 812356',
   companyAddress: '1 Horston Rd, LE5 5QA',
 }

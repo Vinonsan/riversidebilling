@@ -86,13 +86,6 @@ function BillForm({ bill, onChange, onReset, onGenerate }) {
           step="1"
         />
         <Input
-          id="currency"
-          label="Currency"
-          placeholder="GBP"
-          value={bill.currency}
-          onChange={onChange}
-        />
-        <Input
           id="note"
           label="Note"
           placeholder="Car has repaired in front left"

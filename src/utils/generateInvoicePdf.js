@@ -71,9 +71,9 @@ function buildPdfContent(bill) {
     size: 13,
     bold: true,
   })
-  addText(content, 316, 516, formatCurrency(bill.price, bill.currency), { size: 12, bold: true })
+  addText(content, 316, 516, formatCurrency(bill.price), { size: 12, bold: true })
   addText(content, 414, 516, String(bill.quantity || 1), { size: 12, bold: true })
-  addText(content, 470, 516, formatCurrency(lineTotal, bill.currency), { size: 12, bold: true })
+  addText(content, 470, 516, formatCurrency(lineTotal), { size: 12, bold: true })
 
   addLine(content, 64, 494, 528, 494, { r: 0.5, g: 0.5, b: 0.5 })
   addText(content, 70, 472, `Note: ${bill.note || 'Vehicle serviced and inspected.'}`, {
@@ -109,7 +109,7 @@ function buildPdfContent(bill) {
 
   addFilledRect(content, 312, 306, 226, 40, { r: 0.84, g: 0.84, b: 0.84 })
   addText(content, 322, 320, 'TOTAL', { size: 16, bold: true, r: 0.82, g: 0.12, b: 0.18 })
-  addText(content, 446, 320, formatCurrency(total, bill.currency), {
+  addText(content, 446, 320, formatCurrency(total), {
     size: 16,
     bold: true,
     r: 0.82,

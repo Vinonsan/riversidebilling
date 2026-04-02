@@ -60,9 +60,9 @@ function BillPreview({ bill }) {
 
           <div className="invoice-preview__table-row invoice-preview__table-grid">
             <strong>{bill.serviceType || bill.vehicleNumber || '-'}</strong>
-            <strong>{formatCurrency(bill.price, bill.currency)}</strong>
+            <strong>{formatCurrency(bill.price)}</strong>
             <strong>{bill.quantity || '1'}</strong>
-            <strong>{formatCurrency(lineTotal, bill.currency)}</strong>
+            <strong>{formatCurrency(lineTotal)}</strong>
           </div>
         </section>
 
@@ -89,7 +89,7 @@ function BillPreview({ bill }) {
 
           <div className="invoice-preview__total-box">
             <span>TOTAL</span>
-            <strong>{formatCurrency(grandTotal, bill.currency)}</strong>
+            <strong>{formatCurrency(grandTotal)}</strong>
           </div>
         </section>
 
