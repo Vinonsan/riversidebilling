@@ -1,7 +1,7 @@
 import Button from './Button'
 import Input from './Input'
 
-function BillForm({ bill, onChange, onReset, onGenerate }) {
+function BillForm({ bill, onChange, onReset, onGenerate, isGenerating }) {
   return (
     <form className="billing-card">
       <div className="billing-card__header">
@@ -130,10 +130,10 @@ function BillForm({ bill, onChange, onReset, onGenerate }) {
       </div>
 
       <div className="billing-actions">
-        <Button type="button" onClick={onGenerate}>
-          Generate Bill PDF
+        <Button type="button" onClick={onGenerate} disabled={isGenerating}>
+          {isGenerating ? 'Generating PDF...' : 'Generate Bill PDF'}
         </Button>
-        <Button type="button" variant="secondary" onClick={onReset}>
+        <Button type="button" variant="secondary" onClick={onReset} disabled={isGenerating}>
           Clear
         </Button>
       </div>

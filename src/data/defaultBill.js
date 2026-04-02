@@ -17,4 +17,25 @@ const defaultBill = {
   companyAddress: '1 Horston Rd, LE5 5QA',
 }
 
+export function createEmptyBill() {
+  return {
+    invoiceNumber: '',
+    billDate: new Date().toISOString().slice(0, 10),
+    customerName: '',
+    customerAddress: '',
+    customerEmail: '',
+    customerPhone: '',
+    vehicleNumber: '',
+    serviceType: '',
+    price: '',
+    quantity: '1',
+    note: '',
+    accountNumber: '',
+    accountName: '',
+    bankDetails: '',
+    companyPhone: '',
+    companyAddress: '',
+  }
+}
+
 export default defaultBill

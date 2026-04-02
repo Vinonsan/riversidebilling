@@ -1,11 +1,14 @@
 import { calculateGrandTotal, calculateLineTotal } from './billCalculations'
 import { formatCurrency } from './formatCurrency'
 
+const encoder = new TextEncoder()
+
 function escapePdfText(value) {
   return String(value ?? '')
     .replace(/\\/g, '\\\\')
     .replace(/\(/g, '\\(')
     .replace(/\)/g, '\\)')
+    .replace(/£/g, '\\243')
 }
 
 function addText(lines, x, y, text, options = {}) {
@@ -33,6 +36,52 @@ function addFilledRect(lines, x, y, width, height, options = {}) {
   lines.push(`${r} ${g} ${b} rg ${x} ${y} ${width} ${height} re f`)
 }
 
+function addImage(lines, imageName, x, y, width, height) {
+  lines.push(`q ${width} 0 0 ${height} ${x} ${y} cm /${imageName} Do Q`)
+}
+
+function concatBytes(chunks) {
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+  const merged = new Uint8Array(totalLength)
+  let offset = 0
+
+  chunks.forEach((chunk) => {
+    merged.set(chunk, offset)
+    offset += chunk.length
+  })
+
+  return merged
+}
+
+function getJpegSize(bytes) {
+  if (bytes[0] !== 0xff || bytes[1] !== 0xd8) {
+    throw new Error('Unsupported logo format. Please use a JPEG image.')
+  }
+
+  let offset = 2
+
+  while (offset < bytes.length) {
+    if (bytes[offset] !== 0xff) {
+      offset += 1
+      continue
+    }
+
+    const marker = bytes[offset + 1]
+    const blockLength = (bytes[offset + 2] << 8) + bytes[offset + 3]
+
+    if (marker >= 0xc0 && marker <= 0xc3) {
+      return {
+        height: (bytes[offset + 5] << 8) + bytes[offset + 6],
+        width: (bytes[offset + 7] << 8) + bytes[offset + 8],
+      }
+    }
+
+    offset += 2 + blockLength
+  }
+
+  throw new Error('Unable to read logo image size.')
+}
+
 function buildPdfContent(bill) {
   const total = calculateGrandTotal(bill)
   const lineTotal = calculateLineTotal(bill)
@@ -43,8 +92,7 @@ function buildPdfContent(bill) {
   addFilledRect(content, 0, 760, 230, 82, { r: 0.03, g: 0.03, b: 0.03 })
   addLine(content, 234, 760, 594, 760, { width: 1.2, r: 0.82, g: 0.12, b: 0.18 })
 
-  addText(content, 24, 792, 'RIVERSIDE', { size: 28, bold: true, r: 1, g: 1, b: 1 })
-  addText(content, 58, 772, 'AUTOMOTIVE', { size: 16, bold: true, r: 1, g: 1, b: 1 })
+  addImage(content, 'Logo', 16, 760, 192, 74)
   addText(content, 372, 772, 'INVOICE', { size: 30, bold: true, r: 0.82, g: 0.12, b: 0.18 })
 
   addText(content, 54, 690, 'INVOICE TO:', { size: 17, bold: true, r: 0.82, g: 0.12, b: 0.18 })
@@ -126,40 +174,57 @@ function buildPdfContent(bill) {
   return content.join('\n')
 }
 
-export function generateInvoicePdf(bill) {
-  const contentStream = buildPdfContent(bill)
-  const objects = []
+export async function generateInvoicePdf(bill) {
+  const logoUrl = `${import.meta.env.BASE_URL}logo.jpeg`
+  const response = await fetch(logoUrl)
 
-  objects.push('1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj')
-  objects.push('2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj')
-  objects.push(
-    '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >> endobj',
-  )
-  objects.push('4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj')
-  objects.push('5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj')
-  objects.push(
-    `6 0 obj << /Length ${contentStream.length} >> stream\n${contentStream}\nendstream endobj`,
-  )
+  if (!response.ok) {
+    throw new Error(`Failed to load logo image: ${response.status}`)
+  }
 
-  let pdf = '%PDF-1.4\n'
+  const logoBuffer = await response.arrayBuffer()
+  const logoBytes = new Uint8Array(logoBuffer)
+  const { width: logoWidth, height: logoHeight } = getJpegSize(logoBytes)
+  const contentStream = encoder.encode(buildPdfContent(bill))
+  const objects = [
+    encoder.encode('1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n'),
+    encoder.encode('2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n'),
+    encoder.encode(
+      '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> /XObject << /Logo 6 0 R >> >> /Contents 7 0 R >> endobj\n',
+    ),
+    encoder.encode('4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n'),
+    encoder.encode('5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj\n'),
+    concatBytes([
+      encoder.encode(
+        `6 0 obj << /Type /XObject /Subtype /Image /Width ${logoWidth} /Height ${logoHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${logoBytes.length} >> stream\n`,
+      ),
+      logoBytes,
+      encoder.encode('\nendstream endobj\n'),
+    ]),
+    concatBytes([
+      encoder.encode(`7 0 obj << /Length ${contentStream.length} >> stream\n`),
+      contentStream,
+      encoder.encode('\nendstream endobj\n'),
+    ]),
+  ]
+
+  const header = encoder.encode('%PDF-1.4\n')
   const offsets = [0]
+  let currentOffset = header.length
 
-  objects.forEach((objectDefinition) => {
-    offsets.push(pdf.length)
-    pdf += `${objectDefinition}\n`
+  objects.forEach((objectBytes) => {
+    offsets.push(currentOffset)
+    currentOffset += objectBytes.length
   })
 
-  const xrefOffset = pdf.length
-  pdf += `xref\n0 ${objects.length + 1}\n`
-  pdf += '0000000000 65535 f \n'
-
+  let xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
   offsets.slice(1).forEach((offset) => {
-    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`
+    xref += `${String(offset).padStart(10, '0')} 00000 n \n`
   })
+  xref += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${currentOffset}\n%%EOF`
 
-  pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
-
-  const blob = new Blob([pdf], { type: 'application/pdf' })
+  const pdfBytes = concatBytes([header, ...objects, encoder.encode(xref)])
+  const blob = new Blob([pdfBytes], { type: 'application/pdf' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url

@@ -1,6 +1,8 @@
 import { calculateGrandTotal, calculateLineTotal } from '../utils/billCalculations'
 import { formatCurrency } from '../utils/formatCurrency'
 
+const logoSrc = `${import.meta.env.BASE_URL}logo.jpeg`
+
 function BillPreview({ bill }) {
   const lineTotal = calculateLineTotal(bill)
   const grandTotal = calculateGrandTotal(bill)
@@ -17,13 +19,11 @@ function BillPreview({ bill }) {
 
         <header className="invoice-preview__header">
           <div className="invoice-preview__brand">
-            <div className="invoice-preview__brand-mark">
-              <span className="invoice-preview__brand-gear">R</span>
-            </div>
-            <div>
-              <p className="invoice-preview__brand-name">RIVERSIDE</p>
-              <p className="invoice-preview__brand-subtitle">AUTOMOTIVE</p>
-            </div>
+            <img
+              className="invoice-preview__brand-logo"
+              src={logoSrc}
+              alt="Riverside Automotive logo"
+            />
           </div>
 
           <h3 className="invoice-preview__title">INVOICE</h3>
